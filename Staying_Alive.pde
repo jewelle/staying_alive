@@ -10,8 +10,8 @@ int fontSize = 32; // change this to change font size in the whole project
 
 
 void setup(){  
-  size(200, 100); // delete if full screen
-  //fullScreen(); // uncomment this for the full screen game on touch pad
+  //size(200, 100); // delete if full screen
+  fullScreen(); // uncomment this for the full screen game on touch pad
   background(255);
   //noCursor(); // uncomment this to hide the cursor for the full screen game
   myFont = createFont("Effra", fontSize);
@@ -20,6 +20,7 @@ void setup(){
 }
 
 void draw (){
+  // should probably check something and make this into a for loop with the file numbers as i.
       if (mousePressed == true & firstDone == false & secondDone == false & thirdDone == false){
         fill(0);
         text ("PAGE 1", width/2, height/2);
