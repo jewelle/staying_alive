@@ -10,28 +10,35 @@ import processing.sound.*;
 SoundFile file;
 
 boolean sequenceStarted = false; // detect whether the sequence & game have started
+boolean gameStarted = false;
 PFont myFont; // variable to load font
 int fontSize = 32; // change this to change font size in the whole project
-PImage[] pages = new PImage[28]; // make 31 PImages variables to hold the jpg files for the pages
+PImage[] pages = new PImage[28]; // make 28 PImages variables to hold the jpg files for the pages
 int startingTime;
 int currentTime;
 int pageNum = 0;
-int pageTurn = 3000; // time spent on each slide (in milliseconds)
+int pageTurn = 500; // time spent on each slide (in milliseconds)
 int gifRate = 500; // this is going to be complicated to indicate which files are gif files. maybe should make 2 types of files and loop them separately.
 
+
 void setup(){ 
+  println(pages.length);
   //Sound s = new Sound(this); // uncomment these for use with pi
   //s.outputDevice(1); // uncomment these for use with pi
+  file = new SoundFile(this, "stayinalive.wav");
+  
   frameRate(10); // can be changed
   size(200, 100); // delete if full screen
   //fullScreen(); // uncomment this for the full screen game on touch pad
   //noCursor(); // uncomment this to hide the cursor for the full screen game
   background(255);
-  myFont = createFont("Effra", fontSize);
+  
+  // font things for writing score to screen
+  /*myFont = createFont("Effra", fontSize);
   textFont(myFont);
   textSize(fontSize); 
-  file = new SoundFile(this, "stayinalive.wav");
-  
+  */
+    
   // load and resize images to screen
   // make sure theyre scaled. can make one of the variables 0 for scaling
   for (int i = 0; i < pages.length; i++){
@@ -42,32 +49,44 @@ void setup(){
 }
 
 void draw (){
-  println(file.isPlaying());
-  background(255);
+  background(255); // to refresh when drawing to the screen every frame
+      
+      // If someone touches the screen to start
       if (mousePressed == true & sequenceStarted == false){ // start sequence
         sequenceStarted = true;
         startingTime = millis(); // establish a time on which to base the slideshow
-        pageNum = 1;
+        pageNum = 1; // turn the page
         //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
         image(pages[pageNum], 0, 0);
-        // check whether file is playing. if not playing, play
-        if (file.isPlaying() == false){
-          file.play();
-        }
        }
-      else if (sequenceStarted == false){ // draw start screen
-        image(pages[0], 0, 0);
+       
+      // Waiting screen (this will be animated too)
+      else if (sequenceStarted == false){ 
+        image(pages[0], 0, 0); // draw start screen
       }
-      else if (sequenceStarted == true){
-        if (pageNum >= pages.length){
-          sequenceStarted = false;
-          pageNum = 0;
-        }
+      
+      // Cycling through display sequence after someone has pressed to start
+      else if (sequenceStarted == true && gameStarted == false){
         image(pages[pageNum], 0, 0);
         currentTime = millis();
         if (currentTime - startingTime > pageTurn){
-        pageNum++;
-        startingTime = startingTime + pageTurn;
+          pageNum++;
+          startingTime = startingTime + pageTurn;
+          if (pageNum >= 16){ // if the entry sequence has finished
+            file.play(); // start playing stayin alive
+            gameStarted = true;
+          }
+        }
+      }
+      
+      // Playing game
+      else if (gameStarted == true){
+        //change screen according to how they're playing
+        image(pages[17], 0, 0); // currently just displaying happy face
+        if (file.isPlaying() == false){ // if file has stopped playing, stop game *go to scoring sequence
+            sequenceStarted = false;
+            gameStarted = false;
+            pageNum = 0;
         }
       }
 }
