@@ -4,7 +4,7 @@ CPR Game Machine
 October 2018
 */
 
-// "WAV, AIF/AIFF, MP3. MP3 decoding can be very slow on ARM processors (Android/Raspberry Pi), we generally recommend you use lossless WAV or AIF files."
+// WAV or AIF are recommended file formats for the SoundFile library when using Raspberry Pi.
   
 import processing.sound.*;
 SoundFile file;
@@ -19,10 +19,12 @@ int pageNum = 0;
 int pageTurn = 3000; // time spent on each slide (in milliseconds)
 int gifRate = 500; // this is going to be complicated to indicate which files are gif files. maybe should make 2 types of files and loop them separately.
 
-void setup(){  
+void setup(){ 
+  //Sound s = new Sound(this); // uncomment these for use with pi
+  //s.outputDevice(1); // uncomment these for use with pi
   frameRate(10); // can be changed
-  //size(200, 100); // delete if full screen
-  fullScreen(); // uncomment this for the full screen game on touch pad
+  size(200, 100); // delete if full screen
+  //fullScreen(); // uncomment this for the full screen game on touch pad
   //noCursor(); // uncomment this to hide the cursor for the full screen game
   background(255);
   myFont = createFont("Effra", fontSize);
@@ -40,6 +42,7 @@ void setup(){
 }
 
 void draw (){
+  println(file.isPlaying());
   background(255);
       if (mousePressed == true & sequenceStarted == false){ // start sequence
         sequenceStarted = true;
@@ -47,24 +50,24 @@ void draw (){
         pageNum = 1;
         //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
         image(pages[pageNum], 0, 0);
+        // check whether file is playing. if not playing, play
+        if (file.isPlaying() == false){
+          file.play();
+        }
        }
       else if (sequenceStarted == false){ // draw start screen
         image(pages[0], 0, 0);
       }
       else if (sequenceStarted == true){
-         // check whether file is playing. if not playing, play - file.play();
         if (pageNum >= pages.length){
           sequenceStarted = false;
           pageNum = 0;
         }
         image(pages[pageNum], 0, 0);
         currentTime = millis();
-        println(currentTime - startingTime);
         if (currentTime - startingTime > pageTurn){
         pageNum++;
         startingTime = startingTime + pageTurn;
         }
       }
 }
-
-// maybe make a separate function to play the music once a certain file has been reached.
