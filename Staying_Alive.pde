@@ -19,7 +19,7 @@ boolean gameStarted = false;
 boolean showRanking = false;
 boolean showScore = false;
 PFont myFont; // variable to load font
-int fontSize = 32; // change this to change font size in the whole project
+int fontSize = 25; // change this to change font size in the whole project
 PImage[] pages = new PImage[28]; // make 28 PImages variables to hold the jpg files for the pages. change for number of pages.
 int pageNum = 0;
 int pageTurn = 500; // time spent on each slide (in milliseconds)
@@ -49,16 +49,15 @@ void setup(){
   file = new SoundFile(this, "stayinalive.wav");
   
   frameRate(10); // can be changed
-  size(470, 280); // delete if full screen
-  //fullScreen(); // uncomment this for the full screen game on touch pad
+  //size(470, 280); // delete if full screen
+  fullScreen(); // uncomment this for the full screen game on touch pad
   //noCursor(); // uncomment this to hide the cursor for the full screen game
   background(255);
   
-  /*// font things for writing score to screen
+  // font things for writing score to screen
   myFont = createFont("Effra", fontSize);
   textFont(myFont);
   textSize(fontSize); 
-   */
    
   // load and resize images to screen
   // make sure theyre scaled. can make one of the variables 0 for scaling
@@ -120,7 +119,7 @@ void continueSequence(){
     }*/
   }
     if (pageNum == 16){ // if the entry sequence has finished
-        displayface = 17;
+        displayface = 16; // blue face to start
         file.play(); // start playing stayin alive
         gameStarted = true;
      }
@@ -192,8 +191,6 @@ void saveScore(){
   if (ranking <=10){
     enterName();
   }  
-  //println("Your ranking is " + ranking); // show the row number in the newly sorted table
-  //println("TOP TEN");
   showRanking = true;
   scoreStartingTime = millis();
   checkShowScore();
@@ -228,8 +225,9 @@ void enterName() {
 //------ Show the top 10 scores by ID and score
 void showRanking() {
   fill(255);
-  text("Your ranking is " + ranking, width/2, (height/2)+10); // show the row number in the newly sorted table
-  text("TOP TEN", width/2, (height/2)-10);
+  text("You are", width/2, (height/2)-fontSize);
+  text("# " + ranking, width/2, (height/2));
+  text("in our ranking", width/2, (height/2)+fontSize);
 }
 
   
@@ -246,7 +244,7 @@ void showTopScores() {
   for (int i = 0; i < rows; i++) {
     String id = table.getString(i, 1);
     int score = table.getInt(i, 2);
-    y = y+15;
+    y = y+fontSize;
     text(id + " " + score, width/2, y);
   }
 }
