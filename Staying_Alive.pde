@@ -22,7 +22,6 @@ int gifRate = 500; // this is going to be complicated to indicate which files ar
 
 
 void setup(){ 
-  println(pages.length);
   //Sound s = new Sound(this); // uncomment these for use with pi
   //s.outputDevice(1); // uncomment these for use with pi
   file = new SoundFile(this, "stayinalive.wav");
@@ -49,44 +48,61 @@ void setup(){
 }
 
 void draw (){
+  
   background(255); // to refresh when drawing to the screen every frame
-      
-      // If someone touches the screen to start
-      if (mousePressed == true & sequenceStarted == false){ // start sequence
-        sequenceStarted = true;
-        startingTime = millis(); // establish a time on which to base the slideshow
-        pageNum = 1; // turn the page
-        //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
-        image(pages[pageNum], 0, 0);
-       }
-       
-      // Waiting screen (this will be animated too)
-      else if (sequenceStarted == false){ 
-        image(pages[0], 0, 0); // draw start screen
-      }
-      
-      // Cycling through display sequence after someone has pressed to start
-      else if (sequenceStarted == true && gameStarted == false){
-        image(pages[pageNum], 0, 0);
-        currentTime = millis();
-        if (currentTime - startingTime > pageTurn){
-          pageNum++;
-          startingTime = startingTime + pageTurn;
-          if (pageNum >= 16){ // if the entry sequence has finished
-            file.play(); // start playing stayin alive
-            gameStarted = true;
+  // If someone touches the screen to start
+  if (mousePressed == true & sequenceStarted == false){ // start sequence
+    sequenceStarted = true;
+    startingTime = millis(); // establish a time on which to base the slideshow
+    pageNum = 1; // turn the page
+    //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
+    image(pages[pageNum], 0, 0);
+  }     
+  // Waiting screen (this will be animated too)
+  else if (sequenceStarted == false){ 
+    image(pages[0], 0, 0); // draw start screen
+  } 
+  // Cycling through display sequence after someone has pressed to start
+  else if (sequenceStarted == true && gameStarted == false){
+    image(pages[pageNum], 0, 0); // draw current image to screen
+    currentTime = millis();
+    if (currentTime - startingTime > pageTurn){ // maybe make this the smaller limit?
+      pageNum++;
+      startingTime = startingTime + pageTurn;
+      /* should i use switch?
+          if (pageNum == 4){ // cycle through 4-6 in 1/3 time
+            image(pages[4], 0, 0);
+            
+            pageNum = 7;
+          }  
+          if (pageNum == 8){ // flip back and forth quickly between 8 & 9
+            image(pages[8], 0, 0);
+            
           }
-        }
+          if (pageNum == 12){ // one second each until 15
+            image(pages[12], 0, 0);
+            
+          }*/
+      if (pageNum == 16){ // if the entry sequence has finished
+        file.play(); // start playing stayin alive
+        gameStarted = true;
       }
+    }
+  }
       
-      // Playing game
+      // Play game
       else if (gameStarted == true){
-        //change screen according to how they're playing
-        image(pages[17], 0, 0); // currently just displaying happy face
-        if (file.isPlaying() == false){ // if file has stopped playing, stop game *go to scoring sequence
-            sequenceStarted = false;
-            gameStarted = false;
-            pageNum = 0;
-        }
+        playGame();
       }
+}
+
+//------ Start game mode
+void playGame(){
+  //change screen according to how they're playing
+  image(pages[17], 0, 0); // currently just displaying happy face
+  if (file.isPlaying() == false){ // if file has stopped playing, stop game *go to scoring sequence 
+    sequenceStarted = false;
+    gameStarted = false;
+    pageNum = 0;
+   }  
 }
