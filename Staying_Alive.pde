@@ -5,37 +5,36 @@ October 2018
 */
 
 // WAV or AIF are recommended file formats for the SoundFile library when using Raspberry Pi.
-  
+
 import processing.sound.*;
 SoundFile file;
 import cc.arduino.*;
 import org.firmata.*;
 import processing.serial.*;
 
-int displayface;
+Table table;
+Arduino arduino; // change to pi for final sketch
 boolean sequenceStarted = false; // detect whether the sequence & game have started
 boolean gameStarted = false;
+boolean showRanking = false;
+boolean showScore = false;
 PFont myFont; // variable to load font
 int fontSize = 32; // change this to change font size in the whole project
 PImage[] pages = new PImage[28]; // make 28 PImages variables to hold the jpg files for the pages. change for number of pages.
-int startingTime;
-int currentTime;
 int pageNum = 0;
 int pageTurn = 500; // time spent on each slide (in milliseconds)
+int scorePageTurn = 4000; // time spent on each slide (in milliseconds)
 int gifRate = 500; // this is going to be complicated to indicate which files are gif files. maybe should make 2 types of files and loop them separately.
-Arduino arduino; // change to pi for final sketch
-int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, pressedtime, nowtime, bpmlowerlimit, bpmupperlimit, score, ranking, playerNum;
+int startingTime, currentTime, pressedtime, nowtime, scoreStartingTime, scoreCurrentTime;
+int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, bpmlowerlimit, bpmupperlimit, score, ranking, playerNum, displayface;
 int bpm = 576; // song bpm. Heart Association recommended BPM between 500-600
 int margin = 30; // change this between about 25 - 100 to make it more or less difficult
 int beatSwitch = 12; // pin for beat switch (top one)
 int pressureSwitch = 13; // pin for pressure switch (lower one)
-Table table;
-
-boolean showScore;
 
 void setup(){ 
-  //table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
-  eraseScores(); // use this to create a clean file (hopefully just for testing)
+  table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
+  //eraseScores(); // use this to create a clean file (hopefully just for testing)
   table.setColumnType("score", Table.INT); // sets the scores as integers so they are parsed correctly when ordering the table.
   println(Arduino.list()); // change to pi for final sketch
   arduino = new Arduino(this, "/dev/cu.usbmodem14101", 57600); // change to pi for final sketch
@@ -43,7 +42,7 @@ void setup(){
   arduino.pinMode(pressureSwitch, Arduino.INPUT_PULLUP); // change to pi for final sketch
   bpmlowerlimit = bpm-margin;
   bpmupperlimit = bpm+margin;
-  score = 0; // this should be added to the start game area
+  score = 0;
 
   //Sound s = new Sound(this); // uncomment these for use with pi
   //s.outputDevice(1); // uncomment these for use with pi
@@ -55,12 +54,12 @@ void setup(){
   //noCursor(); // uncomment this to hide the cursor for the full screen game
   background(255);
   
-  // font things for writing score to screen
-  /*myFont = createFont("Effra", fontSize);
+  /*// font things for writing score to screen
+  myFont = createFont("Effra", fontSize);
   textFont(myFont);
   textSize(fontSize); 
-  */
-    
+   */
+   
   // load and resize images to screen
   // make sure theyre scaled. can make one of the variables 0 for scaling
   for (int i = 0; i < pages.length; i++){
@@ -71,69 +70,69 @@ void setup(){
 }
 
 void draw (){
-  background(255); // to refresh when drawing to the screen every frame
-  if (showScore == true){
-    //text("Your ranking is " + ranking, width/2, (height/2)-6); // show the row number in the newly sorted table
-    //text("TOP TEN", width/2, (height/2)-12);
-    println("Your ranking is " + ranking);
-  }
-  else{
-    //text(score, width/2, height/2);
-    println(score);
-  }
+  background(0); // to refresh when drawing to the screen every frame
+  checkShowScore();
   // If someone touches the screen to start
   if (mousePressed == true & sequenceStarted == false){ // start sequence
-    sequenceStarted = true;
-    startingTime = millis(); // establish a time on which to base the slideshow
-    pageNum = 1; // turn the page
-    //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
-    image(pages[pageNum], 0, 0);
+    startSequence();
   }     
   // Waiting screen (this will be animated too)
-  else if (sequenceStarted == false){ 
+  else if (sequenceStarted == false && showScore == false){ 
     image(pages[0], 0, 0); // draw start screen
   } 
   // Cycling through display sequence after someone has pressed to start
-  else if (sequenceStarted == true && gameStarted == false){
-    image(pages[pageNum], 0, 0); // draw current image to screen
-    currentTime = millis();
-    if (currentTime - startingTime > pageTurn){ // maybe make this the smaller limit?
-      pageNum++;
-      startingTime = startingTime + pageTurn;
-      /* should i use switch?
-          if (pageNum == 4){ // cycle through 4-6 in 1/3 time
-            image(pages[4], 0, 0);
-            
-            pageNum = 7;
-          }  
-          if (pageNum == 8){ // flip back and forth quickly between 8 & 9
-            image(pages[8], 0, 0);
-            
-          }
-          if (pageNum == 12){ // one second each until 15
-            image(pages[12], 0, 0);
-            
-          }*/
-      if (pageNum == 16){ // if the entry sequence has finished
+  else if (sequenceStarted == true && gameStarted == false && showRanking == false && showScore == false){
+    continueSequence();
+  }
+  // Play game
+  else if (gameStarted == true){
+    playGame();
+  }
+}
+
+//------ Start cycling through pre-game slides
+void startSequence(){
+  showScore = false; // maybe this is unecessary?
+  sequenceStarted = true;
+  startingTime = millis(); // establish a time on which to base the slideshow
+  pageNum = 1; // turn the page
+  //delay(pageTurn*100); // slight delay from when they click the screen? maybe delete?
+  image(pages[pageNum], 0, 0);
+}
+
+//------ Continue cycling through pre-game slides
+void continueSequence(){
+  image(pages[pageNum], 0, 0); // draw current image to screen
+  currentTime = millis();
+  if (currentTime - startingTime > pageTurn){ // maybe make this the smaller limit?
+    pageNum++;
+    startingTime = startingTime + pageTurn;
+    /* should i use switch?
+    if (pageNum == 4){ // cycle through 4-6 in 1/3 time
+      image(pages[4], 0, 0);
+      pageNum = 7;
+    }  
+    if (pageNum == 8){ // flip back and forth quickly between 8 & 9
+      image(pages[8], 0, 0);
+    }
+    if (pageNum == 12){ // one second each until 15
+      image(pages[12], 0, 0);
+    }*/
+  }
+    if (pageNum == 16){ // if the entry sequence has finished
         displayface = 17;
         file.play(); // start playing stayin alive
         gameStarted = true;
-      }
-    }
-  }
-      // Play game
-      else if (gameStarted == true){
-        playGame();
-      }
+     }
 }
 
 //------ Start game mode
+// make face change if nothing happens. and make scores negative.
 void playGame(){
-  //change screen according to how they're playing
-  image(pages[displayface], 0, 0);
-  if (file.isPlaying() == false){ // if file has stopped playing, stop game *go to scoring sequence 
+  showScore = false;
+  image(pages[displayface], 0, 0); //change screen according to how they're playing
+  if (file.isPlaying() == false){ // if file has stopped playing, stop game go to scoring sequence 
     saveScore();
-    sequenceStarted = false;
     gameStarted = false;
     pageNum = 0;
    }
@@ -142,7 +141,6 @@ void playGame(){
   pressureSwitchState = arduino.digitalRead(pressureSwitch); // change to pi for final sketch
   //------ detect when top limit switch is pressed
   if (beatSwitchState == 1 && lastBeatSwitchState == 0){ // when the switch goes from off to on, not on to off
-    showScore = false; // this should all be within the game thing and this can be made false some other way.
     //------ -1 for incorrect pressure
     if (pressureSwitchState == 0){ //if the bottom switch is not pressed
       // trigger "Push harder!," blue face & pillow  
@@ -171,12 +169,13 @@ void playGame(){
         score = score+2;
       }
     }
-    pressedtime = millis();  
+    pressedtime = millis(); 
     println(score);
   }
   lastBeatSwitchState = beatSwitchState;
   lastPressureSwitchState = pressureSwitchState;
 }
+
 
 //------ Once the game is finished, save score
 void saveScore(){
@@ -193,12 +192,31 @@ void saveScore(){
   if (ranking <=10){
     enterName();
   }  
-  println("Your ranking is " + ranking); // show the row number in the newly sorted table
-  println("TOP TEN");
-  // how to display this in draw? when to make it false
-  showScore = true;
-  showTopScores();
-  score = 0; // reset score
+  //println("Your ranking is " + ranking); // show the row number in the newly sorted table
+  //println("TOP TEN");
+  showRanking = true;
+  scoreStartingTime = millis();
+  checkShowScore();
+}
+
+void checkShowScore(){
+  scoreCurrentTime = millis();
+  if (scoreCurrentTime - scoreStartingTime < scorePageTurn && showRanking == true){
+    showRanking();
+  }
+  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && showRanking == true){
+    showRanking = false;
+    showScore = true;
+    scoreStartingTime = scoreStartingTime + scorePageTurn;
+  }
+  if (scoreCurrentTime - scoreStartingTime < scorePageTurn && showScore == true){
+    showTopScores();
+  }
+  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && showScore == true){
+   showScore = false; 
+   score = 0; // reset score
+   sequenceStarted = false;
+  }
 }
 
 
@@ -208,7 +226,15 @@ void enterName() {
 }
 
 //------ Show the top 10 scores by ID and score
-void showTopScores() {
+void showRanking() {
+  fill(255);
+  text("Your ranking is " + ranking, width/2, (height/2)+10); // show the row number in the newly sorted table
+  text("TOP TEN", width/2, (height/2)-10);
+}
+
+  
+void showTopScores() {  
+  fill(255);
   int rows;
   if (table.getRowCount() < 10){ // if the table has under ten scores, make "row" the number of scores
     rows = table.getRowCount();
@@ -216,10 +242,12 @@ void showTopScores() {
   else{ // make it 10 for top scores
     rows = 10;
   }
+  int y = height/3;
   for (int i = 0; i < rows; i++) {
     String id = table.getString(i, 1);
     int score = table.getInt(i, 2);
-    println(id + " " + score);
+    y = y+15;
+    text(id + " " + score, width/2, y);
   }
 }
 
