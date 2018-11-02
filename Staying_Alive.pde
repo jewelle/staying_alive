@@ -19,15 +19,21 @@ boolean enterName = false;
 boolean winner = false;
 boolean loser = false;
 boolean loser2 = false;
+boolean playingagain = false;
+boolean notplayingagain = false;
+boolean keyboardopen = false;
+boolean dontopenkeyboard = false;
+boolean face = false;
+
 PFont myFont; // variable to load font
 int fontSize = 60; // change this to change font size in the whole project
 PImage[] pages = new PImage[45]; // make 44 PImages variables to hold the jpg files for the pages. change for number of pages.
 int pageNum = 0;
-int pageTurn = 500; // time spent on each slide (in milliseconds)
+int pageTurn = 2000; // time spent on each slide (in milliseconds)
 int winningScore = 30; // higher than this = person survives
-int scorePageTurn = 2000; // time spent on each slide (in milliseconds)
+int scorePageTurn = 3000; // time spent on each slide (in milliseconds)
 int gifRate = 500; // this is going to be complicated to indicate which files are gif files. maybe should make 2 types of files and loop them separately.
-int startingTime, currentTime, pressedtime, nowtime, scoreStartingTime, scoreCurrentTime;
+int startingTime, currentTime, pressedtime, nowtime, scoreStartingTime, scoreCurrentTime, gameStartTime;
 int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, bpmlowerlimit, bpmupperlimit, score, ranking, playerNum, displayface;
 int bpm = 576; // song bpm. Heart Association recommended BPM between 500-600
 int margin = 30; // change this between about 25 - 100 to make it more or less difficult
@@ -37,8 +43,8 @@ int elapsedTime;
 String name = "AAA"; // maybe this should be "AAA"? to signify there is something there to fill? Also change in other function if so.
 
 void setup(){ 
-  table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
-  //eraseScores(); // use this to create a clean file (hopefully just for testing)
+  //table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
+  eraseScores(); // use this to create a clean file (hopefully just for testing)
   table.setColumnType("score", Table.INT); // sets the scores as integers so they are parsed correctly when ordering the table.
   GPIO.pinMode(beatSwitch, GPIO.INPUT_PULLUP);
   GPIO.pinMode(pressureSwitch, GPIO.INPUT_PULLUP);
@@ -79,6 +85,7 @@ void draw (){
   elapsedTime = currentTime - startingTime; 
   // If someone touches the screen to start
   if (mousePressed == true & sequenceStarted == false && enterName == false && loser2 == false && loser == false){ // start sequence
+    println("pressed1");
     startSequence();
   }     
   // Waiting screen (this will be animated too)
@@ -153,6 +160,7 @@ void continueSequence(){
       file.play(); // start playing stayin alive
       gameStarted = true;
       name = "AAA";
+      gameStartTime = millis();
   }
 }
 
@@ -160,7 +168,7 @@ void continueSequence(){
 // make face change if nothing happens. and make scores negative.
 void playGame(){
   image(pages[displayface], 0, 0); //change screen according to how they're playing
-  if (file.isPlaying() == false){ // if file has stopped playing, stop game go to scoring sequence 
+  if (nowtime - gameStartTime >= 30000 && file.isPlaying() == false){ // if 30 seconds have passed and file has stopped playing, stop game & go to scoring sequence 
     saveScore();
     gameStarted = false;
     pageNum = 0;
@@ -170,8 +178,10 @@ void playGame(){
       scoreStartingTime = millis();
     }
     if (score < winningScore){
+      println("oops were here again");
       image(pages[39], 0, 0);
       loser = true; // need to change it to 41 and make it clickable
+      loser2 = false;
       scoreStartingTime = millis();
     }
    }
@@ -181,22 +191,38 @@ void playGame(){
   // beatSwitch is on until pressed, so pressed = 0.
   //------ detect when top limit switch is released
   if (beatSwitchState == 0 && lastBeatSwitchState == 1){ // when the switch goes from on to off
+    face = !face;
     //------ -1 for incorrect pressure
     if (pressureSwitchState == 0){ //if the bottom switch is not pressed
       // trigger "Push harder!," blue face & pillow  
       score--;
-      displayface = 35;
+      if (face == false){
+        displayface = 35;
+      }
+      else{
+        displayface = 32;
+      }
     }
     //------ -1 when too slow
     if (nowtime - pressedtime >= bpmupperlimit){
       // trigger "Too slow!," blue face & pillow 
       score--;
-      displayface = 33;
+      if (face == false){
+        displayface = 33;
+      }
+      else{
+        displayface = 32;
+      }
     }
     //------ -1 when too fast
     if (nowtime - pressedtime <= bpmlowerlimit){
       // trigger "Too fast!," blue face & pillow 
-      displayface = 34;
+      if (face == false){
+        displayface = 34;
+      }
+      else{
+        displayface = 32;
+      }
       score--;
     }
     //------ +1 for correct speed range, +2 for correct pressure
@@ -206,7 +232,12 @@ void playGame(){
       score++;
       if (pressureSwitchState == 1 && lastPressureSwitchState == 0){
         // trigger "Keep going!," green face & pillow 
-        displayface = 37;
+        if (face == false){
+          displayface = 37;
+        }
+        else{
+          displayface = 36;
+        }
         score = score+2;
       }
     }
@@ -214,6 +245,11 @@ void playGame(){
   }
   lastBeatSwitchState = beatSwitchState;
   lastPressureSwitchState = pressureSwitchState;
+  if (nowtime - gameStartTime >= 1000 && score == 0){ // if nothing has happened, deduct points.
+    score = score-20;
+    displayface = 32;
+  }
+  println(score);
 }
 
 
@@ -234,40 +270,53 @@ void saveScore(){
 //---CHECK SHOW SCORES--- Check whether scores should be shown on screen
 void checkShowScore(){
   scoreCurrentTime = millis();
-  if (scoreCurrentTime - scoreStartingTime < scorePageTurn/2 && loser == true && loser2 == false && gameStarted == false){
-    println("1");
+// ---LOSER SEQUENCE--- // make it 5 seconds waiting
+  if (scoreCurrentTime - scoreStartingTime < scorePageTurn && loser == true && loser2 == false && gameStarted == false){
     image(pages[39], 0, 0); // dead face page
   }
-  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn/2 && loser == true && loser2 == false){
-    println("2");
+  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && loser == true && loser2 == false){
     loser = false;
     loser2 = true;
     scoreStartingTime = millis();
   }
-  if (scoreCurrentTime - scoreStartingTime < scorePageTurn && loser2 == true && loser == false){
-    println("3");
+  if (scoreCurrentTime - scoreStartingTime < 5000 && loser2 == true && loser == false && playingagain == false){
     image(pages[41], 0, 0);// try again page
     if (mousePressed == true){
-      loser2 = false;
-      gameStarted = true;
-      //sequenceStarted = false;
-      playGame();
+      file.play(); // start playing stayin alive
+      playingagain = true;
+      image(pages[31], 0, 0);
+      displayface = 31;
+    }
+    else{
+      notplayingagain = true;
     }
   }
-  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && loser2 == true){
-    println("4");
+  if (scoreCurrentTime - scoreStartingTime < 500 && playingagain == true){ // wait 100 milliseconds
+    image(pages[31], 0, 0);
+  }
+  if (scoreCurrentTime - scoreStartingTime >= 500 && playingagain == true){
+    loser2 = false;
+    // blue face to start
+    gameStarted = true;
+    name = "AAA";
+    playingagain = false;
+    gameStartTime = millis();
+  }
+  if (scoreCurrentTime - scoreStartingTime >= 5000 && loser2 == true && notplayingagain == true){
    loser2 = false;
-   //showScore = false; 
    score = 0; // reset score
    sequenceStarted = false;
    startingTime = millis();
   }
+// ---WINNER SEQUENCE---
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && winner == true){
     image(pages[40], 0, 0); 
   }
+  // goes directly from this to enter name part, then speeds thru opening screen. need to show ranking first and fix timing.
   if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && winner == true){
     showRanking = true;
     winner = false;
+    scoreStartingTime = millis();
   }
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && showRanking == true){
     showRanking();
@@ -275,12 +324,11 @@ void checkShowScore(){
   if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && showRanking == true){
     showRanking = false;
     if (ranking <=10){
-      println("ranking under 10");
       enterName = true;
+      dontopenkeyboard = false;
       enterName();
     }
     else{ // go back to opening slide
-      println("ranking not under 10");
       sequenceStarted = false;
       startingTime = millis();
       score = 0;
@@ -288,16 +336,20 @@ void checkShowScore(){
   }
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && showScore == true && enterName == false){
     showTopScores();
-    println("showing top scores");
   }
   if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && showScore == true && enterName == false){
-   println("end show score");
    showScore = false; 
    score = 0; // reset score
    sequenceStarted = false;
   }
   if (enterName == true && showRanking == false && showScore == false){
+    keyboardopen = true;
     enterName();
+  }
+  if (keyboardopen == true && dontopenkeyboard == false){
+    exec("Desktop/keyboard.sh"); // open the keyboard with full file path on Pi
+    keyboardopen = false;
+    dontopenkeyboard = true;
   }
 }
 
@@ -310,7 +362,6 @@ void showRanking() {
 
 //---ENTER NAME--- Allow top 10 players to enter their names
 void enterName() {
-  println("enter name");
   // look at keyPressed function for this.
   image(pages[44], 0, 0); 
   // append ID with entered name
@@ -321,7 +372,6 @@ void enterName() {
 
 //---SHOW TOP SCORES--- Show the top 10 scores by ID and score
 void showTopScores() {  
-  println("showing top scores");
   image(pages[43], 0, 0);  
   fill(49, 102, 18);
   int rows;
@@ -376,8 +426,8 @@ void keyPressed() {
          saveTable(table, "data/scores.csv"); // not sure if this should be before the re-sorting.
          enterName = false;
          showScore = true;
-         //scoreStartingTime = millis();
-         //showTopScores();
+         scoreStartingTime = millis();
+         exec("killall matchbox-keyboard"); //to close
       }
     }
   }
