@@ -29,14 +29,13 @@ PFont myFont; // variable to load font
 int fontSize = 60; // change this to change font size in the whole project
 PImage[] pages = new PImage[45]; // make 44 PImages variables to hold the jpg files for the pages. change for number of pages.
 int pageNum = 0;
-int pageTurn = 2000; // time spent on each slide (in milliseconds)
+int pageTurn = 5000; // time spent on each slide (in milliseconds)
 int winningScore = 30; // higher than this = person survives
-int scorePageTurn = 3000; // time spent on each slide (in milliseconds)
-int gifRate = 500; // this is going to be complicated to indicate which files are gif files. maybe should make 2 types of files and loop them separately.
+int scorePageTurn = 5000; // time spent on each slide (in milliseconds)
 int startingTime, currentTime, pressedtime, nowtime, scoreStartingTime, scoreCurrentTime, gameStartTime;
 int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, bpmlowerlimit, bpmupperlimit, score, ranking, playerNum, displayface;
 int bpm = 576; // song bpm. Heart Association recommended BPM between 500-600
-int margin = 30; // change this between about 25 - 100 to make it more or less difficult
+int margin = 100; // change this between about 25 - 100 to make it more or less difficult
 int beatSwitch = 4; // pin for beat switch (top one)
 int pressureSwitch = 17; // pin for pressure switch (lower one)
 int elapsedTime;
@@ -168,6 +167,7 @@ void continueSequence(){
 // make face change if nothing happens. and make scores negative.
 void playGame(){
   image(pages[displayface], 0, 0); //change screen according to how they're playing
+  //---CHECK WHETHER STOPPED---
   if (nowtime - gameStartTime >= 30000 && file.isPlaying() == false){ // if 30 seconds have passed and file has stopped playing, stop game & go to scoring sequence 
     saveScore();
     gameStarted = false;
@@ -200,7 +200,7 @@ void playGame(){
         displayface = 35;
       }
       else{
-        displayface = 32;
+       // displayface = 32;
       }
     }
     //------ -1 when too slow
@@ -228,7 +228,7 @@ void playGame(){
     //------ +1 for correct speed range, +2 for correct pressure
     if (nowtime - pressedtime >= bpmlowerlimit && nowtime - pressedtime <= bpmupperlimit){
       // probably no feedback since this means it is the right beat but too fast, too slow, or wrong pressure
-      displayface = 32;
+      displayface = 36;
       score++;
       if (pressureSwitchState == 1 && lastPressureSwitchState == 0){
         // trigger "Keep going!," green face & pillow 
@@ -279,7 +279,7 @@ void checkShowScore(){
     loser2 = true;
     scoreStartingTime = millis();
   }
-  if (scoreCurrentTime - scoreStartingTime < 5000 && loser2 == true && loser == false && playingagain == false){
+  if (scoreCurrentTime - scoreStartingTime < scorePageTurn && loser2 == true && loser == false && playingagain == false){
     image(pages[41], 0, 0);// try again page
     if (mousePressed == true){
       file.play(); // start playing stayin alive
@@ -302,7 +302,7 @@ void checkShowScore(){
     playingagain = false;
     gameStartTime = millis();
   }
-  if (scoreCurrentTime - scoreStartingTime >= 5000 && loser2 == true && notplayingagain == true){
+  if (scoreCurrentTime - scoreStartingTime >= scorePageTurn && loser2 == true && notplayingagain == true){
    loser2 = false;
    score = 0; // reset score
    sequenceStarted = false;
@@ -347,7 +347,7 @@ void checkShowScore(){
     enterName();
   }
   if (keyboardopen == true && dontopenkeyboard == false){
-    exec("Desktop/keyboard.sh"); // open the keyboard with full file path on Pi
+    exec("/home/pi/Desktop/keyboard.sh"); // open the keyboard with full file path on Pi
     keyboardopen = false;
     dontopenkeyboard = true;
   }
@@ -427,7 +427,9 @@ void keyPressed() {
          enterName = false;
          showScore = true;
          scoreStartingTime = millis();
-         exec("killall matchbox-keyboard"); //to close
+         //exec("ps -ax | grep Chrome"); //to close
+         //exec("pidof matchbox-keyboard"); = pid
+         //exec("kill" pid);
       }
     }
   }
