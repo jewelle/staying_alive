@@ -1,120 +1,121 @@
 /*
 Jack the Maker for CUF (Jose de Mello Saude) @ Web Summit
 CPR Game Machine
-October 2018
-*/
+November 2018
 
-// WAV or AIF are recommended file formats for the SoundFile library when using Raspberry Pi.
+Version without touch screen (and therefore without enter name sequence or keyboard)
+*/
 
 import processing.sound.*;
 import processing.io.*;
 SoundFile file;
 
+//---ADJUSTMENTS (for difficulty, time spent on slides)
+int beatmargin = 300; // change this between about 25 - 200 to make it more or less difficult
+int winningScore = 0; // higher than or equal to this = person survives
+int pageTurn = 4500; // time spent on each slide (in milliseconds)
+int scorePageTurn = 5000; // time spent on each score slide (in milliseconds)
+//---ETC
 Table table;
-boolean sequenceStarted = false; // detect whether the sequence & game have started
+PFont myFont; // variable to load font
+PImage[] pages = new PImage[45]; // make 44 PImages variables to hold the jpg files for the pages. change for number of pages.
+String name = ""; // player name
+color textcolor = color(67, 102, 73);
+boolean sequenceStarted = false;
 boolean gameStarted = false;
 boolean showRanking = false;
-boolean showScore = false;
-boolean enterName = false;
 boolean winner = false;
 boolean loser = false;
 boolean loser2 = false;
 boolean playingagain = false;
 boolean notplayingagain = false;
-boolean keyboardopen = false;
-boolean dontopenkeyboard = false;
-boolean face = false;
 boolean green = false;
 boolean blue = true;
-boolean red = false;
-
-
-
-PFont myFont; // variable to load font
-int fontSize = 45; // change this to change font size in the whole project
-PImage[] pages = new PImage[45]; // make 44 PImages variables to hold the jpg files for the pages. change for number of pages.
+boolean ledsareon = false;
+int bpm = 576; // song BPM. Heart Association recommendeds BPM between 500-600
+int fontSize = 45;
 int pageNum = 0;
-int pageTurn = 500; // time spent on each slide (in milliseconds)
-int winningScore = 10; // higher than this = person survives
-int scorePageTurn = 2000; // time spent on each slide (in milliseconds)
 int startingTime, currentTime, pressedtime, nowtime, scoreStartingTime, scoreCurrentTime, gameStartTime, checkStartTime;
-int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, bpmlowerlimit, bpmupperlimit, score, lastScore, ranking, playerNum, displayface;
-int bpm = 576; // song bpm. Heart Association recommended BPM between 500-600
-int beatmargin = 200; // change this between about 25 - 100 to make it more or less difficult
+int beatSwitchState, lastBeatSwitchState, pressureSwitchState, lastPressureSwitchState, bpmlowerlimit, bpmupperlimit, ranking, playerNum, displayface;
+int score = 0;
+int lastScore = 0;
 int beatSwitch = 4; // pin for beat switch (top one)
 int pressureSwitch = 17; // pin for pressure switch (lower one)
 int elapsedTime;
-String name = ""; // maybe this should be "AAA"? to signify there is something there to fill? Also change in other function if so.
-color textcolor = color(67, 102, 73);//59, 81, 63);//49, 102, 18);
-
 
 void setup(){ 
-  //table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
-  eraseScores(); // use this to create a clean file (hopefully just for testing)
+  //---TURN ON LEDS--- attempt 1/2
+  exec("/home/pi/Desktop/run_leds.sh"); // kills then runs library for led controls
+  exec("/home/pi/Desktop/run_blue.sh"); // turns blue leds on
+  
+  //---LOAD SCORES---
+  table = loadTable("data/scores.csv", "header"); //loads the master score file on start up
+  //eraseScores(); // use this to create a clean scores file
   table.setColumnType("score", Table.INT); // sets the scores as integers so they are parsed correctly when ordering the table.
+  
+  //---SET PINS & THINGS---
   GPIO.pinMode(beatSwitch, GPIO.INPUT_PULLUP);
   GPIO.pinMode(pressureSwitch, GPIO.INPUT_PULLUP);
   bpmlowerlimit = bpm-beatmargin;
   bpmupperlimit = bpm+beatmargin;
-  score = 0;
-  lastScore = 0;
-
-  Sound s = new Sound(this); // uncomment these for use with pi
-  s.outputDevice(1); // uncomment these for use with pi
+  Sound s = new Sound(this);
+  s.outputDevice(1);
   file = new SoundFile(this, "Staying_Alive.wav");
-  
-  frameRate(10); // can be changed
-  //size(1024, 600); // delete if full screen
-  fullScreen(); // uncomment this for the full screen game on touch pad
-  noCursor(); // uncomment this to hide the cursor for the full screen game
+  frameRate(10);
+  //size(1024, 600); // comment if full screen
+  fullScreen();
+  noCursor();
   background(255);
-  
-  // font things for writing score to screen
   myFont = createFont("Effra", fontSize);
   textFont(myFont);
   textSize(fontSize);
   textAlign(CENTER, CENTER);
   noStroke();
   
-  // runs led controls
-  exec("/home/pi/Desktop/run_leds.sh");
-  // turns blue leds on
-  exec("/home/pi/Desktop/run_blue.sh");
-  
-  // load and resize images to screen
-  // make sure theyre scaled. can make one of the variables 0 for scaling
+  //---LOAD PAGES---
   for (int i = 0; i < pages.length; i++){
     pages[i] = loadImage(i+".png");
     pages[i].resize(width, height); // sizes the images to the screen width and height.
   }
   image(pages[0], 0, 0); // display the first screen on startup
+  
+  //---TURN ON LEDS--- attempt 2/2 (sometimes the first one doesn't work)
+  exec("/home/pi/Desktop/run_leds.sh"); // kills then runs library for led controls
+  exec("/home/pi/Desktop/run_blue.sh"); // turns blue leds on
+  
+  //---START TIME---
   startingTime = millis();
 }
 
+    
 void draw (){
-  background(0); // to refresh when drawing to the screen every frame
-  beatSwitchState = GPIO.digitalRead(beatSwitch);
+  background(0);
+  pressureSwitchState = GPIO.digitalRead(pressureSwitch);
   checkShowScore();
   currentTime = millis();
   elapsedTime = currentTime - startingTime; 
+  
   // If someone touches the screen to start
-  if (beatSwitchState == 0 && lastBeatSwitchState == 1 & sequenceStarted == false && enterName == false && loser2 == false && loser == false){ // start sequence
+  if (pressureSwitchState == 1 && lastPressureSwitchState == 0 && sequenceStarted == false && loser == false && loser2 == false){ // start sequence
     startSequence();
   }     
-  // Waiting screen (this will be animated too)
-  else if (sequenceStarted == false && showScore == false && enterName == false){ 
+  
+  // Waiting screen
+  else if (sequenceStarted == false){ 
     image(pages[pageNum], 0, 0);
     startScreen();
   } 
+  
   // Cycling through display sequence after someone has pressed to start
-  else if (sequenceStarted == true && gameStarted == false && showRanking == false && showScore == false && enterName == false && winner == false && loser == false && loser2 == false ){
+  else if (sequenceStarted == true && gameStarted == false && showRanking == false && winner == false && loser == false && loser2 == false ){
     continueSequence();
   }
+  
   // Play game
   else if (gameStarted == true){
     playGame();
   }
-  lastBeatSwitchState = beatSwitchState;
+  lastPressureSwitchState = pressureSwitchState;
 }
 
 //---START SCREEN--- Play opening screen gif
@@ -153,6 +154,10 @@ void continueSequence(){
     pageNum++;
     startingTime = startingTime + (pageTurn/3);
   }
+  if (pageNum == 18 && elapsedTime > (pageTurn + (pageTurn/2))){
+    pageNum++;
+    startingTime = startingTime + (pageTurn + (pageTurn/2)));
+  }
   if (pageNum == 19 && elapsedTime > (pageTurn/4) || pageNum == 20 && elapsedTime > (pageTurn/4) || pageNum == 21 && elapsedTime > (pageTurn/4) || pageNum == 22 && elapsedTime > (pageTurn/4)){
     pageNum++;
     startingTime = startingTime + (pageTurn/4);
@@ -165,7 +170,7 @@ void continueSequence(){
     pageNum++;
     startingTime = startingTime + 1000;
   }
-  else if (elapsedTime > pageTurn){ // maybe make this the smaller limit?
+  else if (elapsedTime > pageTurn){
     pageNum++;
     startingTime = startingTime + pageTurn;
     }
@@ -179,43 +184,44 @@ void continueSequence(){
   }
 }
 
-//---PLAY GAME--- Start game mode
-// make face change if nothing happens. and make scores negative.
+//---PLAY GAME--- start game mode
 void playGame(){
-  image(pages[displayface], 0, 0); //change screen according to how they're playing
+  image(pages[displayface], 0, 0); // change screen according to how they're playing
   checkStopped(); // check if the game is over and if so, go to win/lose screens.
   nowtime = millis();
-  pressureSwitchState = GPIO.digitalRead(pressureSwitch);
+  beatSwitchState = GPIO.digitalRead(beatSwitch);
   //check if nothing's happened
-  if (nowtime - checkStartTime >= 2500 && score == lastScore || nowtime - pressedtime >= 2000 && score != lastScore){ // if nothing has happened, deduct points.
+  if (nowtime - checkStartTime >= 2500 && score == lastScore || nowtime - pressedtime >= 2000 && score != lastScore){
     score--;
     displayface = 32;
-    //checkStartTime = millis();
     lastScore = score;
     if (green == true){
       exec("/home/pi/Desktop/run_blue.sh");
+      green = false;
     }
   }
-  // if the bottom switch has been pressed
+  //---KEEP GOING / TOO FAST / TOO SLOW--- if the bottom switch has been pressed
   if (pressureSwitchState == 1 && lastPressureSwitchState == 0){
     score = score+5;
     checkScore();
     pressedtime = millis();
   }
-  //------ detect when top limit switch is released
-  else if (beatSwitchState == 0 && lastBeatSwitchState == 1){ // when the switch goes from on to off
-     // just show push harder
+  //---PUSH HARDER--- if top limit switch is released
+  else if (beatSwitchState == 0 && lastBeatSwitchState == 1){
      score--;
      displayface = 35;
+     if (green == true){
+       exec("/home/pi/Desktop/run_blue.sh");
+       green = false;
+     }
      pressedtime = millis();
-     // still need to make sure that these alternate between blue faces
   }
   lastBeatSwitchState = beatSwitchState;
   lastPressureSwitchState = pressureSwitchState;
 }
 
 
-//---CHECK WHETHER STOPPED---
+//---CHECK WHETHER GAME HAS STOPPED---
 void checkStopped(){
   if (nowtime - gameStartTime >= 30000 && file.isPlaying() == false){ // if 30 seconds have passed and file has stopped playing, stop game & go to scoring sequence 
     saveScore();
@@ -223,13 +229,15 @@ void checkStopped(){
     pageNum = 0;
     if (score >= winningScore){
       image(pages[40], 0, 0);
-      winner = true; // make this display for a score show
+      winner = true;
       scoreStartingTime = millis();
-      exec("/home/pi/Desktop/run_green.sh");
+      if (green == false){
+        exec("/home/pi/Desktop/run_green.sh");
+      }
     }
     if (score < winningScore){
       image(pages[39], 0, 0);
-      loser = true; // need to change it to 41 and make it clickable
+      loser = true;
       loser2 = false;
       scoreStartingTime = millis();
       exec("/home/pi/Desktop/run_red.sh");
@@ -237,38 +245,33 @@ void checkStopped(){
   }
 }
 
-// still need to make sure that these alternate between blue faces
+//---CHECK SPEED IF PRESSURE SWITCH IS DEPRESSED--- 
 void checkScore(){
   if (nowtime - pressedtime >= bpmlowerlimit && nowtime - pressedtime <= bpmupperlimit){
-    println("correct timing");
     displayface = 37;
     score = score+10;
     if (green == false){
       exec("/home/pi/Desktop/run_green.sh");
       green = true;
     }
-    // check which to run, run only once.
   }
   else if (nowtime - pressedtime <= bpmlowerlimit){
-    println("too fast");
     displayface = 34;
-      // trigger "Too fast!," blue face & pillow 
     score--;
     if (green == true){
       exec("/home/pi/Desktop/run_blue.sh");
+      green = false;
     }
   }
   else if (nowtime - pressedtime >= bpmupperlimit){
-    println("too slow");
     displayface = 33;
-    // trigger "Too slow!," blue face & pillow 
     score--;
     if (green == true){
       exec("/home/pi/Desktop/run_blue.sh");
+      green = false;
     }
    }
 }
-
 
 //---SAVE SCORE--- Once the game is finished, save score
 void saveScore(){
@@ -277,17 +280,17 @@ void saveScore(){
   TableRow newRow = table.addRow();
   playerNum = table.getRowCount();
   newRow.setInt("playerNum", playerNum);
-  newRow.setString("id", name); // should be changeable so that they can enter their ranking if it's a high score
+  newRow.setString("id", name);
   newRow.setInt("score", score);
-  table.sortReverse(int(2)); // sorts the table by scores. if two players have the same score, sort them with the highest playerNum first!
-  saveTable(table, "data/scores.csv"); // not sure if this should be before the re-sorting.
-  ranking = (table.findRowIndex(str(playerNum), 0)) + 1; // get index of thier row
+  table.sortReverse(int(2));
+  saveTable(table, "data/scores.csv");
+  ranking = (table.findRowIndex(str(playerNum), 0)) + 1; // get index of their row
 }
 
 //---CHECK SHOW SCORES--- Check whether scores should be shown on screen
 void checkShowScore(){
   scoreCurrentTime = millis();
-// ---LOSER SEQUENCE--- // make it 5 seconds waiting
+  // ---LOSER SEQUENCE---
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && loser == true && loser2 == false && gameStarted == false){
     image(pages[39], 0, 0); // dead face page
   }
@@ -298,7 +301,7 @@ void checkShowScore(){
   }
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && loser2 == true && loser == false && playingagain == false){
     image(pages[41], 0, 0);// try again page
-    if (beatSwitchState == 0 && lastBeatSwitchState == 1){
+    if (pressureSwitchState == 1 && lastPressureSwitchState == 0){
       file.play(); // start playing stayin alive
       playingagain = true;
       score = 0;
@@ -309,14 +312,13 @@ void checkShowScore(){
     else{
       notplayingagain = true;
     }
-    lastBeatSwitchState = beatSwitchState;
+    lastPressureSwitchState = pressureSwitchState;
   }
-  if (scoreCurrentTime - scoreStartingTime < 500 && playingagain == true){ // wait 100 milliseconds
+  if (scoreCurrentTime - scoreStartingTime < 500 && playingagain == true){
     image(pages[31], 0, 0);
   }
   if (scoreCurrentTime - scoreStartingTime >= 500 && playingagain == true){
     loser2 = false;
-    // blue face to start
     gameStarted = true;
     name = "";
     playingagain = false;
@@ -331,7 +333,7 @@ void checkShowScore(){
    exec("/home/pi/Desktop/run_blue.sh");
    startingTime = millis();
   }
-// ---WINNER SEQUENCE---
+  // ---WINNER SEQUENCE---
   if (scoreCurrentTime - scoreStartingTime < scorePageTurn && winner == true){
     image(pages[40], 0, 0); 
   }
